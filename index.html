@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <meta name="description" content="Remove background noise and enhance voice recordings with AI (DeepFilterNet3). Runs entirely in your browser; your audio is never uploaded." />
+    <title>AI Voice Enhancer – Private noise removal in your browser</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+    <style>
+      :root {
+        --bg: #f6f8fa;
+        --fg: #1f2328;
+        --muted: #656d76;
+        --card-bg: #ffffff;
+        --card-border: #d0d7de;
+        --drop-border: #d0d7de;
+        --accent: #0969da;
+        --accent-hover: rgba(9, 105, 218, 0.05);
+        --success: #1a7f37;
+        --success-hover: #1f883d;
+        --danger: #d1242f;
+        --btn-secondary-bg: #f6f8fa;
+        --btn-secondary-border: #d0d7de;
+        --btn-secondary-hover: #eaeef2;
+        --bar-bg: #eaeef2;
+        --bar-fg: #0969da;
+        --bar-done: #1a7f37;
+        --corner-fill: #1f2328;
+        --corner-color: #ffffff;
+        color-scheme: light;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        padding: 1rem 0.875rem 2rem;
+      }
+
+      @media (min-width: 600px) {
+        body {
+          padding: 2rem 1rem;
+        }
+      }
+
+      .container {
+        max-width: 560px;
+        width: 100%;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .subtitle {
+        color: var(--muted);
+        font-size: 0.875rem;
+        margin-bottom: 2rem;
+      }
+
+      .card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        box-shadow: 0 1px 2px rgba(31, 35, 40, 0.04);
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+      }
+
+      label {
+        display: block;
+        font-size: 0.8125rem;
+        color: var(--muted);
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+      }
+
+      .drop-zone {
+        border: 2px dashed var(--drop-border);
+        border-radius: 6px;
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+
+      .drop-zone:hover,
+      .drop-zone.dragover {
+        border-color: var(--accent);
+        background: var(--accent-hover);
+      }
+
+      .drop-zone.has-file {
+        border-color: var(--success);
+        border-style: solid;
+        color: var(--fg);
+      }
+
+      .drop-zone input {
+        display: none;
+      }
+
+      .slider-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+
+      .slider-row input[type="range"] {
+        flex: 1;
+        accent-color: var(--accent);
+        height: 6px;
+      }
+
+      .slider-value {
+        min-width: 3ch;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-size: 0.875rem;
+      }
+
+      button {
+        width: 100%;
+        min-height: 44px;
+        padding: 0.75rem;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .btn-primary {
+        background: var(--success);
+        color: #fff;
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        background: var(--success-hover);
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .btn-secondary {
+        background: var(--btn-secondary-bg);
+        color: var(--fg);
+        border: 1px solid var(--btn-secondary-border);
+        margin-top: 0.5rem;
+      }
+
+      .btn-secondary:hover:not(:disabled) {
+        background: var(--btn-secondary-hover);
+      }
+
+      .btn-secondary:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .progress-section {
+        display: none;
+      }
+
+      .progress-section.visible {
+        display: block;
+      }
+
+      .progress-bar-bg {
+        background: var(--bar-bg);
+        border-radius: 4px;
+        height: 8px;
+        overflow: hidden;
+        margin-top: 0.75rem;
+      }
+
+      .progress-bar {
+        background: var(--bar-fg);
+        height: 100%;
+        width: 0%;
+        transition: width 0.3s;
+        border-radius: 4px;
+      }
+
+      .progress-bar.indeterminate {
+        width: 30% !important;
+        animation: indeterminate 1.5s ease-in-out infinite;
+      }
+
+      @keyframes indeterminate {
+        0% { margin-left: 0%; }
+        50% { margin-left: 70%; }
+        100% { margin-left: 0%; }
+      }
+
+      .progress-bar.done {
+        background: var(--bar-done);
+      }
+
+      .status {
+        font-size: 0.8125rem;
+        color: var(--muted);
+        margin-top: 0.5rem;
+      }
+
+      .result-section {
+        display: none;
+      }
+
+      .result-section.visible {
+        display: block;
+      }
+
+      .audio-row {
+        margin-bottom: 1rem;
+      }
+
+      .audio-row span {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-bottom: 0.375rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      audio {
+        width: 100%;
+        height: 36px;
+      }
+
+      .error {
+        color: var(--danger);
+        font-size: 0.8125rem;
+        margin-top: 0.5rem;
+        display: none;
+      }
+
+      .error.visible {
+        display: block;
+      }
+
+      .notice {
+        display: none;
+        color: var(--muted);
+        font-size: 0.8125rem;
+        margin-top: 0.5rem;
+      }
+
+      .limit-warning {
+        font-size: 0.8125rem;
+        color: #9a6700;
+        background: #fff8c5;
+        border: 1px solid #d4a72c;
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        margin-top: 0.75rem;
+      }
+
+      .btn-cancel {
+        background: var(--btn-secondary-bg);
+        color: var(--danger);
+        border: 1px solid var(--btn-secondary-border);
+        margin-top: 0.75rem;
+      }
+
+      .btn-cancel:hover:not(:disabled) {
+        background: var(--btn-secondary-hover);
+      }
+
+      .btn-cancel:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .button-row {
+        margin-top: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      @media (min-width: 480px) {
+        .button-row {
+          flex-direction: row;
+        }
+      }
+
+      .model-note {
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-top: 0.75rem;
+      }
+
+      .github-corner:hover .octo-arm {
+        animation: octocat-wave 560ms ease-in-out;
+      }
+      @keyframes octocat-wave {
+        0%, 100% { transform: rotate(0) }
+        20%, 60% { transform: rotate(-25deg) }
+        40%, 80% { transform: rotate(10deg) }
+      }
+      .voice-warning {
+        font-size: 0.8125rem;
+        color: var(--danger);
+        margin-bottom: 0.5rem;
+      }
+
+      .select-input {
+        width: 100%;
+        padding: 0.5rem;
+        border-radius: 6px;
+        border: 1px solid var(--card-border);
+        background: var(--bg);
+        color: var(--fg);
+        font-size: 0.8125rem;
+      }
+
+      .toggle-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+      }
+
+      .toggle-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8125rem;
+        color: var(--fg);
+        font-weight: 400;
+        cursor: pointer;
+        margin-bottom: 0;
+      }
+
+      .toggle-label input[type="checkbox"] {
+        accent-color: var(--accent);
+      }
+
+      .privacy-banner {
+        background: var(--card-bg);
+        border: 1px solid var(--success);
+        border-radius: 6px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.75rem;
+        font-size: 0.8125rem;
+        color: var(--muted);
+      }
+
+      .browser-banner {
+        background: var(--accent-hover);
+        border: 1px solid var(--accent);
+        border-radius: 6px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.8125rem;
+        color: var(--fg);
+        display: none;
+      }
+
+      .github-corner svg {
+        width: 56px;
+        height: 56px;
+        fill: var(--corner-fill);
+        color: var(--corner-color);
+        position: fixed;
+        top: 0;
+        right: 0;
+        border: 0;
+        z-index: 10;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="https://github.com/boredland/noise" class="github-corner" aria-label="View source on GitHub">
+      <svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin:130px 106px" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor"></path>
+      </svg>
+    </a>
+    <div class="container">
+      <h1>AI Voice Enhancer</h1>
+      <p class="subtitle">
+        Remove background noise with the DeepFilterNet3 AI model, then polish
+        the voice with EQ, compression and loudness normalization — all in
+        your browser.
+      </p>
+
+      <div class="privacy-banner">
+        All processing happens locally in your browser. Your audio files never leave your device.
+      </div>
+
+      <div class="browser-banner" id="browserBanner">
+        Processing will be significantly faster in Chrome or Safari. Consider switching for large files.
+      </div>
+
+      <div class="card">
+        <label>Audio file</label>
+        <div class="drop-zone" id="dropZone">
+          Drop an audio file here or click to select
+          <input type="file" id="fileInput" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.opus,.flac,.webm" />
+        </div>
+        <button class="btn-secondary" id="demoBtn" style="margin-top: 0.5rem">
+          Try with demo audio
+        </button>
+
+        <div id="controlsSection" style="display: none">
+          <label style="margin-top: 1.25rem"
+            >Noise reduction level:
+            <span class="slider-value" id="levelValue">50</span>%</label
+          >
+          <div class="slider-row">
+            <span style="font-size: 0.75rem; color: var(--muted)">Light</span>
+            <input
+              type="range"
+              id="levelSlider"
+              min="0"
+              max="100"
+              value="50"
+            />
+            <span style="font-size: 0.75rem; color: var(--muted)">Heavy</span>
+          </div>
+
+          <label style="margin-top: 1.25rem">Voice optimization</label>
+          <div class="voice-warning" id="voiceWarning" style="display: none">
+            Audio does not appear to contain speech. Voice optimizations have been disabled.
+          </div>
+          <div class="limit-warning" id="limitWarning" style="display: none"></div>
+          <div class="toggle-group">
+            <label class="toggle-label">
+              <input type="checkbox" id="normalizeCheck" checked />
+              Loudness normalization
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" id="eqCheck" checked />
+              Voice EQ (cut rumble, boost clarity)
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" id="compressCheck" checked />
+              Compressor (even out loud and quiet speech)
+            </label>
+          </div>
+
+          <label style="margin-top: 1.25rem">Output format</label>
+          <select id="formatSelect" class="select-input">
+            <option value="wav">WAV (recommended)</option>
+            <option value="auto">Same as input</option>
+            <option value="mp3">MP3</option>
+            <option value="m4a">M4A (AAC)</option>
+            <option value="ogg">OGG (Opus)</option>
+          </select>
+
+          <div class="button-row">
+            <button class="btn-secondary" id="previewBtn" disabled style="margin-top: 0">
+              Preview (first 60s)
+            </button>
+            <button class="btn-primary" id="processBtn" disabled>
+              Process full audio
+            </button>
+          </div>
+        </div>
+
+        <div class="error" id="error"></div>
+        <p class="notice" id="notice"></p>
+        <p class="model-note">
+          The AI model (~17 MB) is downloaded the first time you preview or
+          process audio, then cached by your browser.
+        </p>
+      </div>
+
+      <div class="card progress-section" id="progressSection">
+        <label id="statusLabel">Initializing DeepFilterNet3…</label>
+        <div class="progress-bar-bg">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <p class="status" id="statusDetail"></p>
+        <button class="btn-cancel" id="cancelBtn">Cancel</button>
+      </div>
+
+      <div class="card result-section" id="resultSection">
+        <div class="audio-row">
+          <span>Original</span>
+          <audio id="originalAudio" controls></audio>
+        </div>
+        <div class="audio-row">
+          <span>Enhanced</span>
+          <audio id="filteredAudio" controls></audio>
+        </div>
+        <button class="btn-primary" id="downloadBtn">
+          Download enhanced audio
+        </button>
+        <button class="btn-secondary" id="resetBtn">Process another file</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
