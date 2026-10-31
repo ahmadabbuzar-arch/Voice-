@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: write
-  workflows: write
 
 jobs:
   extract:
@@ -19,17 +18,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check ZIP exists
+      - name: Check ZIP
         run: |
-          if [ ! -f ai-voice-enhancer.zip ]; then
-            echo "ZIP file not found!"
+          test -f ai-voice-enhancer.zip || {
+            echo "ZIP file not found"
             exit 1
-          fi
+          }
 
       - name: Extract project
         run: |
           unzip -o ai-voice-enhancer.zip -d .
-          rm ai-voice-enhancer.zip
+          rm -f .github/workflows/deploy.yml
+          rm -f ai-voice-enhancer.zip
 
       - name: Commit extracted files
         run: |
